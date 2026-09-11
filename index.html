@@ -533,7 +533,8 @@
 <div class="modal-overlay" id="pwModal">
   <div class="pw-box">
     <h3>دخول لوحة التعديل</h3>
-    <input type="password" id="pwInput" placeholder="ادخل كلمة السر">
+    <input type="email" id="pwEmail" placeholder="الإيميل">
+    <input type="password" id="pwInput" placeholder="كلمة السر">
     <div class="err" id="pwErr"></div>
     <button class="close-btn" id="pwSubmit">دخول</button>
   </div>
@@ -606,7 +607,6 @@
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impwd21lam55a2F0Z2JkZ3FtZWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMzE3MjEsImV4cCI6MjEwNDcwNzcyMX0.LsohNMLHJVtYsu3buBS-RdEsTgWOlt5YltmrGN2DNc4";
 
   // كلمة السر
-  const EDIT_PASSWORD = "لؤلؤة_و_محمود_2026";
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -788,14 +788,33 @@
     pwModal.classList.add("open");
   });
 
-  pwSubmit.addEventListener("click", ()=>{
-    if(pwInput.value === EDIT_PASSWORD){
-      pwModal.classList.remove("open");
-      openAdminPanel();
-    } else {
-      pwErr.textContent = "كلمة السر مش صح صححها وجرب تاني";
-    }
-  });
+  pwSubmit.addEventListener("click", async ()=>{
+  const email = document.getElementById("pwEmail").value;
+  const password = pwInput.value;
+  pwErr.textContent = "بيتحقق...";
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  if(error){
+    pwErr.textContent = "الإيميل أو كلمة السر غلط";
+  } else {
+    pwErr.textContent = "";
+    pwModal.classList.remove("open");
+    openAdminPanel();
+  }
+});
+
+openEditFab.addEventListener("click", async ()=>{
+  const { data } = await sb.auth.getSession();
+  if(data.session){
+    openAdminPanel();
+  } else {
+    pwInput.value = "";
+    document.getElementById("pwEmail").value = "";
+    pwErr.textContent = "";
+    pwModal.classList.add("open");
+  }
+});
 
   adminClose.addEventListener("click", ()=> adminModal.classList.remove("open"));
 
