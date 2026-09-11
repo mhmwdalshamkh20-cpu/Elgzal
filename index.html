@@ -462,11 +462,6 @@
   .btn-delete{background:transparent;color:var(--deep-rose);border:1px solid var(--deep-rose);}
   .btn-add{background:var(--gold);color:var(--white);width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;cursor:pointer;margin-top:6px;}
 
-  .thumb-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
-  .thumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;border:1px solid var(--rose-soft);}
-  .thumb img{width:100%;height:100%;object-fit:cover;}
-  .thumb .del-x{position:absolute;top:2px;left:2px;background:rgba(74,53,53,0.75);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1;}
-
   .save-status{font-size:13px;color:var(--ink-soft);margin-top:10px;min-height:18px;}
 </style>
 </head>
@@ -531,12 +526,86 @@
   صنعت بحب <span class="heart-ico">♥</span>
 </footer>
 
+<!-- ============ FAB & ADMIN MODALS ============ -->
+<button class="edit-fab" id="openEditFab" title="تعديل المحتوى">⚙️</button>
+
+<!-- Password Modal -->
+<div class="modal-overlay" id="pwModal">
+  <div class="pw-box">
+    <h3>دخول لوحة التعديل</h3>
+    <input type="password" id="pwInput" placeholder="ادخل كلمة السر">
+    <div class="err" id="pwErr"></div>
+    <button class="close-btn" id="pwSubmit">دخول</button>
+  </div>
+</div>
+
+<!-- Admin Panel Modal -->
+<div class="modal-overlay" id="adminModal">
+  <div class="admin-box">
+    <div class="admin-header">
+      <h3>لوحة التحكم</h3>
+      <button class="admin-close" id="adminClose">×</button>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="tab-settings">الإعدادات</button>
+      <button class="admin-tab" data-tab="tab-timeline">التايم لاين</button>
+      <button class="admin-tab" data-tab="tab-gallery">الصور</button>
+      <button class="admin-tab" data-tab="tab-messages">الرسايل</button>
+    </div>
+    <div class="admin-content">
+      <!-- Settings Panel -->
+      <div class="admin-panel active" id="tab-settings">
+        <div class="field-row">
+          <label>الاسم الأول</label>
+          <input type="text" id="setN1">
+        </div>
+        <div class="field-row">
+          <label>الاسم الثاني</label>
+          <input type="text" id="setN2">
+        </div>
+        <div class="field-row">
+          <label>تاريخ البداية (YYYY-MM-DD)</label>
+          <input type="date" id="setStartDate">
+        </div>
+        <div class="field-row">
+          <label>صورة الهيرو (رفع صورة)</label>
+          <input type="file" id="setHeroFile" accept="image/*">
+        </div>
+        <button class="btn-small btn-save" id="saveSettingsBtn">حفظ الإعدادات</button>
+        <div class="save-status" id="setSaveStatus"></div>
+      </div>
+
+      <!-- Timeline Panel -->
+      <div class="admin-panel" id="tab-timeline">
+        <div id="adminTimelineItems"></div>
+        <button class="btn-add" id="addTimelineBtn">+ إضافة محطة جديدة</button>
+      </div>
+
+      <!-- Gallery Panel -->
+      <div class="admin-panel" id="tab-gallery">
+        <div class="field-row" style="background:var(--cream);padding:14px;border-radius:10px;margin-bottom:18px;">
+          <label><b>إضافة صورة جديدة:</b></label>
+          <input type="file" id="galNewFile" accept="image/*" style="margin-top:6px;">
+          <input type="text" id="galNewCaption" placeholder="وصف الصورة (اختياري)" style="margin-top:6px;">
+          <button class="btn-add" id="addGalleryBtn" style="margin-top:10px;">رفع وإضافة للصورة</button>
+        </div>
+        <div id="adminGalleryItems"></div>
+      </div>
+
+      <!-- Messages Panel -->
+      <div class="admin-panel" id="tab-messages">
+        <div id="adminMessagesItems"></div>
+        <button class="btn-add" id="addMessageBtn">+ إضافة رسالة جديدة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  // ============ إعداد الاتصال بـ Supabase ============
   const SUPABASE_URL = "https://jpwmejnykatgbdgqmebv.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impwd21lam55a2F0Z2JkZ3FtZWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMzE3MjEsImV4cCI6MjEwNDcwNzcyMX0.LsohNMLHJVtYsu3buBS-RdEsTgWOlt5YltmrGN2DNc4";
 
-  // غيّروا الباسورد ده لباسورد سري بينكم انتوا الاتنين بس
+  // كلمة السر
   const EDIT_PASSWORD = "لؤلؤة_و_محمود_2026";
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -545,13 +614,12 @@
   let messagesList = [];
   let lastMsgIndex = -1;
 
-  // بيانات محفوظة عشان لوحة التعديل تستخدمها
   let currentSettingsData = null;
   let currentTimelineData = [];
   let currentGalleryData = [];
   let currentMessagesData = [];
 
-  // ============ قلوب متحركة في الخلفية ============
+  // ============ قلوب متحركة ============
   const heartsBg = document.getElementById("heartsBg");
   for(let i=0;i<14;i++){
     const h = document.createElement("div");
@@ -591,7 +659,7 @@
     return d.toLocaleDateString("ar-EG", { year:'numeric', month:'long', day:'numeric' });
   }
 
-  // ============ تحميل الإعدادات ============
+  // ============ تحميل البيانات ============
   async function loadSettings(){
     const { data, error } = await sb.from("settings").select("*").eq("id", 1).single();
     if(error || !data){
@@ -610,14 +678,12 @@
     if(data.hero_image_url){
       heroPhoto.innerHTML = `<img src="${data.hero_image_url}" alt="">`;
     } else {
-      heroPhoto.textContent = "ضيف صورتكم من Supabase";
+      heroPhoto.textContent = "ضيف صورتكم من لوحة التحكم";
     }
 
     updateCounter();
-    setInterval(updateCounter, 60000);
   }
 
-  // ============ تحميل التايم لاين ============
   async function loadTimeline(){
     const container = document.getElementById("timelineList");
     const { data, error } = await sb.from("timeline").select("*").order("sort_order", { ascending:true });
@@ -636,7 +702,6 @@
     `).join("");
   }
 
-  // ============ تحميل الجاليري ============
   async function loadGallery(){
     const grid = document.getElementById("galleryGrid");
     const { data, error } = await sb.from("gallery").select("*").order("sort_order", { ascending:true });
@@ -654,7 +719,6 @@
     attachLightbox();
   }
 
-  // ============ تحميل الرسايل ============
   async function loadMessages(){
     const { data, error } = await sb.from("messages").select("*");
     const msgText = document.getElementById("msgText");
@@ -667,7 +731,6 @@
     msgText.textContent = messagesList[0];
   }
 
-  // ============ Lightbox ============
   function attachLightbox(){
     const lightbox = document.getElementById("lightbox");
     const lightboxFrame = document.getElementById("lightboxFrame");
@@ -685,11 +748,7 @@
   document.getElementById("closeLightbox").addEventListener("click", ()=>{
     document.getElementById("lightbox").classList.remove("open");
   });
-  document.getElementById("lightbox").addEventListener("click", (e)=>{
-    if(e.target.id === "lightbox") e.target.classList.remove("open");
-  });
 
-  // ============ زرار رسالة جديدة ============
   document.getElementById("msgBtn").addEventListener("click", ()=>{
     if(messagesList.length === 0) return;
     let idx;
@@ -704,7 +763,235 @@
     }, 250);
   });
 
-  // ============ تشغيل كل حاجة ============
+  // ============ رفع الصور إلى Supabase Storage ============
+  async function uploadFileToSupabase(file) {
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const { data, error } = await sb.storage.from("photos").upload(fileName, file);
+    if(error) throw error;
+    const { data: pubUrl } = sb.storage.from("photos").getPublicUrl(fileName);
+    return pubUrl.publicUrl;
+  }
+
+  // ============ لوحة التحكم Admin Logic ============
+  const openEditFab = document.getElementById("openEditFab");
+  const pwModal = document.getElementById("pwModal");
+  const pwInput = document.getElementById("pwInput");
+  const pwErr = document.getElementById("pwErr");
+  const pwSubmit = document.getElementById("pwSubmit");
+  const adminModal = document.getElementById("adminModal");
+  const adminClose = document.getElementById("adminClose");
+
+  openEditFab.addEventListener("click", ()=>{
+    pwInput.value = "";
+    pwErr.textContent = "";
+    pwModal.classList.add("open");
+  });
+
+  pwSubmit.addEventListener("click", ()=>{
+    if(pwInput.value === EDIT_PASSWORD){
+      pwModal.classList.remove("open");
+      openAdminPanel();
+    } else {
+      pwErr.textContent = "كلمة السر مش صح صححها وجرب تاني";
+    }
+  });
+
+  adminClose.addEventListener("click", ()=> adminModal.classList.remove("open"));
+
+  document.querySelectorAll(".admin-tab").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      document.querySelectorAll(".admin-tab").forEach(t=>t.classList.remove("active"));
+      document.querySelectorAll(".admin-panel").forEach(p=>p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById(tab.getAttribute("data-tab")).classList.add("active");
+    });
+  });
+
+  function openAdminPanel(){
+    adminModal.classList.add("open");
+    renderAdminSettings();
+    renderAdminTimeline();
+    renderAdminGallery();
+    renderAdminMessages();
+  }
+
+  // 1. إعدادات Admin
+  function renderAdminSettings(){
+    if(!currentSettingsData) return;
+    document.getElementById("setN1").value = currentSettingsData.name1 || "";
+    document.getElementById("setN2").value = currentSettingsData.name2 || "";
+    if(currentSettingsData.start_date){
+      document.getElementById("setStartDate").value = currentSettingsData.start_date.split("T")[0];
+    }
+  }
+
+  document.getElementById("saveSettingsBtn").addEventListener("click", async ()=>{
+    const status = document.getElementById("setSaveStatus");
+    status.textContent = "جارِ الحفظ...";
+    try {
+      let heroUrl = currentSettingsData ? currentSettingsData.hero_image_url : "";
+      const fileInput = document.getElementById("setHeroFile");
+      if(fileInput.files.length > 0) {
+        heroUrl = await uploadFileToSupabase(fileInput.files[0]);
+      }
+
+      const name1 = document.getElementById("setN1").value;
+      const name2 = document.getElementById("setN2").value;
+      const sDate = document.getElementById("setStartDate").value + "T00:00:00Z";
+
+      const { error } = await sb.from("settings").upsert({
+        id: 1,
+        name1,
+        name2,
+        start_date: sDate,
+        hero_image_url: heroUrl
+      });
+
+      if(error) throw error;
+      status.textContent = "تم الحفظ بنجاح! ✨";
+      loadSettings();
+    } catch(err) {
+      status.textContent = "حصل مشكلة أثناء الحفظ!";
+      console.error(err);
+    }
+  });
+
+  // 2. تايم لاين Admin
+  function renderAdminTimeline(){
+    const box = document.getElementById("adminTimelineItems");
+    box.innerHTML = currentTimelineData.map((item, idx) => `
+      <div class="admin-item" data-id="${item.id}">
+        <div class="field-row">
+          <label>التاريخ/الوقت (مثال: يناير 2023)</label>
+          <input type="text" class="t-inp-date" value="${item.date_label}">
+        </div>
+        <div class="field-row">
+          <label>العنوان</label>
+          <input type="text" class="t-inp-title" value="${item.title}">
+        </div>
+        <div class="field-row">
+          <label>الوصف</label>
+
+          <textarea class="t-inp-desc">${item.description || ""}</textarea>
+        </div>
+        <div class="admin-item-actions">
+          <button class="btn-small btn-save" onclick="saveTimelineItem('${item.id}', this)">حفظ</button>
+          <button class="btn-small btn-delete" onclick="deleteTimelineItem('${item.id}')">حذف</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function saveTimelineItem(id, btn){
+    const parent = btn.closest(".admin-item");
+    const date_label = parent.querySelector(".t-inp-date").value;
+    const title = parent.querySelector(".t-inp-title").value;
+    const description = parent.querySelector(".t-inp-desc").value;
+
+    await sb.from("timeline").update({ date_label, title, description }).eq("id", id);
+    loadTimeline();
+  }
+
+  async function deleteTimelineItem(id){
+    if(confirm("تأكيد حذف المحطة دي؟")){
+      await sb.from("timeline").delete().eq("id", id);
+      await loadTimeline();
+      renderAdminTimeline();
+    }
+  }
+
+  document.getElementById("addTimelineBtn").addEventListener("click", async ()=>{
+    await sb.from("timeline").insert([{
+      date_label: "التاريخ هنا",
+      title: "عنوان المحطة",
+      description: "اكتب وصف للمحطة هنا...",
+      sort_order: currentTimelineData.length + 1
+    }]);
+    await loadTimeline();
+    renderAdminTimeline();
+  });
+
+  // 3. صور Admin
+  function renderAdminGallery(){
+    const box = document.getElementById("adminGalleryItems");
+    box.innerHTML = currentGalleryData.map(item => `
+      <div class="admin-item" style="display:flex;gap:12px;align-items:center;">
+        <img src="${item.image_url}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;">
+        <div style="flex:1;">
+          <input type="text" class="g-inp-cap" value="${item.caption || ""}" placeholder="وصف الصورة" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--rose-soft);">
+        </div>
+        <button class="btn-small btn-save" onclick="saveGalleryItem('${item.id}', this)">حفظ</button>
+        <button class="btn-small btn-delete" onclick="deleteGalleryItem('${item.id}')">حذف</button>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("addGalleryBtn").addEventListener("click", async ()=>{
+    const fileInput = document.getElementById("galNewFile");
+    const caption = document.getElementById("galNewCaption").value;
+    if(fileInput.files.length === 0) return alert("اختر صورة أولاً!");
+
+    try {
+      const url = await uploadFileToSupabase(fileInput.files[0]);
+      await sb.from("gallery").insert([{ image_url: url, caption, sort_order: currentGalleryData.length + 1 }]);
+      fileInput.value = "";
+      document.getElementById("galNewCaption").value = "";
+      await loadGallery();
+      renderAdminGallery();
+    } catch(e) { alert("حدث خطأ أثناء رفع الصورة!"); }
+  });
+
+  async function saveGalleryItem(id, btn){
+    const caption = btn.closest(".admin-item").querySelector(".g-inp-cap").value;
+    await sb.from("gallery").update({ caption }).eq("id", id);
+    loadGallery();
+  }
+
+  async function deleteGalleryItem(id){
+    if(confirm("تأكيد حذف الصورة؟")){
+      await sb.from("gallery").delete().eq("id", id);
+      await loadGallery();
+      renderAdminGallery();
+    }
+  }
+
+  // 4. رسايل Admin
+  function renderAdminMessages(){
+    const box = document.getElementById("adminMessagesItems");
+    box.innerHTML = currentMessagesData.map(item => `
+      <div class="admin-item">
+        <textarea class="m-inp-text" style="width:100%;min-height:50px;border-radius:6px;border:1px solid var(--rose-soft);padding:6px;">${item.text}</textarea>
+        <div class="admin-item-actions">
+          <button class="btn-small btn-save" onclick="saveMessageItem('${item.id}', this)">حفظ</button>
+          <button class="btn-small btn-delete" onclick="deleteMessageItem('${item.id}')">حذف</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function saveMessageItem(id, btn){
+    const text = btn.closest(".admin-item").querySelector(".m-inp-text").value;
+    await sb.from("messages").update({ text }).eq("id", id);
+    loadMessages();
+  }
+
+  async function deleteMessageItem(id){
+    if(confirm("تأكيد حذف الرسالة؟")){
+      await sb.from("messages").delete().eq("id", id);
+      await loadMessages();
+      renderAdminMessages();
+    }
+  }
+
+  document.getElementById("addMessageBtn").addEventListener("click", async ()=>{
+    await sb.from("messages").insert([{ text: "رسالة جديدة..." }]);
+    await loadMessages();
+    renderAdminMessages();
+  });
+
+  // ============ تشغيل الموقع ============
+  setInterval(updateCounter, 1000);
   loadSettings();
   loadTimeline();
   loadGallery();
