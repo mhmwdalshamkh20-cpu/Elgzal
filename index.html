@@ -606,9 +606,18 @@
   const SUPABASE_URL = "https://jpwmejnykatgbdgqmebv.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impwd21lam55a2F0Z2JkZ3FtZWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMzE3MjEsImV4cCI6MjEwNDcwNzcyMX0.LsohNMLHJVtYsu3buBS-RdEsTgWOlt5YltmrGN2DNc4";
 
-  // كلمة السر
-
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ============ حماية من حقن الكود (XSS) ============
+  function escapeHtml(str){
+    if(str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   let startDate = new Date("2023-01-01T00:00:00Z");
   let messagesList = [];
@@ -672,11 +681,11 @@
     document.getElementById("namesTitle").textContent = `${data.name1} & ${data.name2}`;
     startDate = new Date(data.start_date);
     document.getElementById("sinceText").textContent = `من ${formatDateArabic(startDate)} وإحنا مع بعض`;
-    document.getElementById("footerText").innerHTML = `صنعت بحب <span class="heart-ico">♥</span> ${data.name1} و ${data.name2}`;
+    document.getElementById("footerText").innerHTML = `صنعت بحب <span class="heart-ico">♥</span> ${escapeHtml(data.name1)} و ${escapeHtml(data.name2)}`;
 
     const heroPhoto = document.getElementById("heroPhoto");
     if(data.hero_image_url){
-      heroPhoto.innerHTML = `<img src="${data.hero_image_url}" alt="">`;
+      heroPhoto.innerHTML = `<img src="${escapeHtml(data.hero_image_url)}" alt="">`;
     } else {
       heroPhoto.textContent = "ضيف صورتكم من لوحة التحكم";
     }
@@ -695,9 +704,9 @@
     container.innerHTML = data.map(item => `
       <div class="t-item">
         <div class="t-dot"></div>
-        <div class="t-date">${item.date_label}</div>
-        <div class="t-title">${item.title}</div>
-        <div class="t-desc">${item.description || ""}</div>
+        <div class="t-date">${escapeHtml(item.date_label)}</div>
+        <div class="t-title">${escapeHtml(item.title)}</div>
+        <div class="t-desc">${escapeHtml(item.description || "")}</div>
       </div>
     `).join("");
   }
@@ -711,8 +720,8 @@
       return;
     }
     grid.innerHTML = data.map(item => `
-      <div class="g-item" data-caption="${(item.caption || "").replace(/"/g,'&quot;')}" data-img="${item.image_url}">
-        <img src="${item.image_url}" alt="${item.caption || ""}">
+      <div class="g-item" data-caption="${escapeHtml(item.caption || "")}" data-img="${escapeHtml(item.image_url)}">
+        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.caption || "")}">
       </div>
     `).join("");
 
@@ -738,7 +747,7 @@
 
     document.querySelectorAll(".g-item").forEach(item=>{
       item.addEventListener("click", ()=>{
-        lightboxFrame.innerHTML = `<img src="${item.getAttribute("data-img")}" alt="">`;
+        lightboxFrame.innerHTML = `<img src="${escapeHtml(item.getAttribute("data-img"))}" alt="">`;
         lightboxCaption.textContent = item.getAttribute("data-caption") || "";
         lightbox.classList.add("open");
       });
@@ -782,39 +791,35 @@
   const adminModal = document.getElementById("adminModal");
   const adminClose = document.getElementById("adminClose");
 
-  openEditFab.addEventListener("click", ()=>{
-    pwInput.value = "";
-    pwErr.textContent = "";
-    pwModal.classList.add("open");
+  // زرار فتح لوحة التعديل: بيتأكد الأول لو فيه جلسة دخول حقيقية شغالة
+  openEditFab.addEventListener("click", async ()=>{
+    const { data } = await sb.auth.getSession();
+    if(data.session){
+      openAdminPanel();
+    } else {
+      pwInput.value = "";
+      document.getElementById("pwEmail").value = "";
+      pwErr.textContent = "";
+      pwModal.classList.add("open");
+    }
   });
 
+  // تسجيل الدخول الحقيقي عبر Supabase Auth
   pwSubmit.addEventListener("click", async ()=>{
-  const email = document.getElementById("pwEmail").value;
-  const password = pwInput.value;
-  pwErr.textContent = "بيتحقق...";
+    const email = document.getElementById("pwEmail").value;
+    const password = pwInput.value;
+    pwErr.textContent = "بيتحقق...";
 
-  const { error } = await sb.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({ email, password });
 
-  if(error){
-    pwErr.textContent = "الإيميل أو كلمة السر غلط";
-  } else {
-    pwErr.textContent = "";
-    pwModal.classList.remove("open");
-    openAdminPanel();
-  }
-});
-
-openEditFab.addEventListener("click", async ()=>{
-  const { data } = await sb.auth.getSession();
-  if(data.session){
-    openAdminPanel();
-  } else {
-    pwInput.value = "";
-    document.getElementById("pwEmail").value = "";
-    pwErr.textContent = "";
-    pwModal.classList.add("open");
-  }
-});
+    if(error){
+      pwErr.textContent = "الإيميل أو كلمة السر غلط";
+    } else {
+      pwErr.textContent = "";
+      pwModal.classList.remove("open");
+      openAdminPanel();
+    }
+  });
 
   adminClose.addEventListener("click", ()=> adminModal.classList.remove("open"));
 
@@ -883,16 +888,15 @@ openEditFab.addEventListener("click", async ()=>{
       <div class="admin-item" data-id="${item.id}">
         <div class="field-row">
           <label>التاريخ/الوقت (مثال: يناير 2023)</label>
-          <input type="text" class="t-inp-date" value="${item.date_label}">
+          <input type="text" class="t-inp-date" value="${escapeHtml(item.date_label)}">
         </div>
         <div class="field-row">
           <label>العنوان</label>
-          <input type="text" class="t-inp-title" value="${item.title}">
+          <input type="text" class="t-inp-title" value="${escapeHtml(item.title)}">
         </div>
         <div class="field-row">
           <label>الوصف</label>
-
-          <textarea class="t-inp-desc">${item.description || ""}</textarea>
+          <textarea class="t-inp-desc">${escapeHtml(item.description || "")}</textarea>
         </div>
         <div class="admin-item-actions">
           <button class="btn-small btn-save" onclick="saveTimelineItem('${item.id}', this)">حفظ</button>
@@ -936,9 +940,9 @@ openEditFab.addEventListener("click", async ()=>{
     const box = document.getElementById("adminGalleryItems");
     box.innerHTML = currentGalleryData.map(item => `
       <div class="admin-item" style="display:flex;gap:12px;align-items:center;">
-        <img src="${item.image_url}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;">
+        <img src="${escapeHtml(item.image_url)}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;">
         <div style="flex:1;">
-          <input type="text" class="g-inp-cap" value="${item.caption || ""}" placeholder="وصف الصورة" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--rose-soft);">
+          <input type="text" class="g-inp-cap" value="${escapeHtml(item.caption || "")}" placeholder="وصف الصورة" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--rose-soft);">
         </div>
         <button class="btn-small btn-save" onclick="saveGalleryItem('${item.id}', this)">حفظ</button>
         <button class="btn-small btn-delete" onclick="deleteGalleryItem('${item.id}')">حذف</button>
@@ -980,7 +984,7 @@ openEditFab.addEventListener("click", async ()=>{
     const box = document.getElementById("adminMessagesItems");
     box.innerHTML = currentMessagesData.map(item => `
       <div class="admin-item">
-        <textarea class="m-inp-text" style="width:100%;min-height:50px;border-radius:6px;border:1px solid var(--rose-soft);padding:6px;">${item.text}</textarea>
+        <textarea class="m-inp-text" style="width:100%;min-height:50px;border-radius:6px;border:1px solid var(--rose-soft);padding:6px;">${escapeHtml(item.text)}</textarea>
         <div class="admin-item-actions">
           <button class="btn-small btn-save" onclick="saveMessageItem('${item.id}', this)">حفظ</button>
           <button class="btn-small btn-delete" onclick="deleteMessageItem('${item.id}')">حذف</button>
